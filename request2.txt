@@ -1,0 +1,422 @@
+# 🤖 AI智能购物推荐Agent - DeepSeek版完整需求文档
+
+## 📋 项目概述
+
+### 项目背景
+开发一个基于DeepSeek AI的智能购物推荐系统，专门针对数码产品（手机、电脑、平板等）提供个性化的购买建议。系统通过多源数据采集和DeepSeek分析，为用户提供客观、全面的产品对比和购买决策支持。
+
+### 核心价值
+- **对用户**：节省选购时间，获得专业的产品分析和推荐
+- **对开发者**：构建基于国产AI的可扩展推荐架构
+- **成本优势**：使用DeepSeek API大幅降低AI分析成本
+- **商业化潜力**：为后续的电商导流、广告变现奠定基础
+
+## 🏗️ 系统架构
+
+### 整体架构图
+```
+前端界面 (React) 
+    ↓ (HTTP/RESTful API)
+后端服务 (Python FastAPI) 
+    ↓ (数据流)
+AI分析引擎 (LangChain + DeepSeek) 
+    ↓ (API调用)
+数据层 (多源数据 + 缓存)
+```
+
+## 🎨 前端部分需求
+
+### 技术栈
+- **框架**：React 18 + TypeScript
+- **样式**：Tailwind CSS + Ant Design
+- **状态管理**：Zustand
+- **数据获取**：React Query + Axios
+- **构建工具**：Vite
+
+### 页面模块
+
+#### 1. 智能搜索首页 (`/`)
+```typescript
+// 核心功能
+interface HomePage {
+  - 产品类型选择（手机、笔记本、平板、配件）
+  - 预算范围滑块选择
+  - 关键词搜索输入
+  - 需求标签多选
+  - 热门产品推荐展示
+  - 响应式布局设计
+  - DeepSeek分析状态提示
+}
+```
+
+#### 2. 推荐结果页 (`/recommendations`)
+```typescript
+// 核心功能
+interface RecommendationPage {
+  - 顶部推荐卡片（TOP3产品）
+  - 详细对比表格
+  - DeepSeek分析报告
+  - 预算建议分析
+  - 产品评分可视化
+  - 用户反馈收集
+  - 分析来源标识（Powered by DeepSeek）
+}
+```
+
+#### 3. 产品详情页 (`/products/:id`)
+```typescript
+// 核心功能
+interface ProductDetailPage {
+  - 产品基本信息展示
+  - 规格参数详情
+  - 用户评价汇总
+  - 价格历史图表
+  - 相似产品推荐
+  - 购买链接跳转
+}
+```
+
+### 组件设计
+```typescript
+// 核心组件列表
+const CoreComponents = {
+  ProductCard: '产品卡片组件',
+  ComparisonTable: '对比表格组件', 
+  BudgetSlider: '预算滑块组件',
+  RatingDisplay: '评分展示组件',
+  LoadingSpinner: '加载状态组件',
+  ErrorBoundary: '错误边界组件',
+  DeepSeekBadge: 'DeepSeek分析标识组件'
+}
+```
+
+## 🔧 后端部分需求
+
+### 技术栈
+- **框架**：Python + FastAPI
+- **AI能力**：LangChain + DeepSeek API
+- **数据存储**：PostgreSQL + Redis
+- **任务队列**：Celery + Redis
+- **API文档**：Swagger UI
+
+### 核心模块
+
+#### 1. DeepSeek服务模块
+```python
+class DeepSeekService:
+    def __init__(self):
+        self.api_key = os.getenv("DEEPSEEK_API_KEY")
+        self.base_url = "https://api.deepseek.com/v1"
+        self.model = "deepseek-chat"
+    
+    async def analyze_products(self, intent: Dict, products: List) -> Dict:
+        """使用DeepSeek分析产品数据"""
+        system_prompt = """
+        你是一个专业的数码产品推荐专家。请基于用户需求和产品数据，提供客观、专业的购买建议。
+        
+        输出要求：
+        1. 需求匹配度分析
+        2. 推荐产品TOP3及理由
+        3. 详细优缺点对比
+        4. 预算优化建议
+        5. 最终购买建议
+        
+        请确保分析客观、准确，避免主观偏见。
+        """
+        
+        # 构建用户提示词
+        user_prompt = self._build_analysis_prompt(intent, products)
+        
+        # 调用DeepSeek API
+        response = await self._call_deepseek_api(system_prompt, user_prompt)
+        return self._parse_deepseek_response(response)
+```
+
+#### 2. 用户意图解析模块
+```python
+class IntentParser:
+    def __init__(self, deepseek_service: DeepSeekService):
+        self.deepseek = deepseek_service
+    
+    async def parse_user_intent(self, user_message: str) -> Dict:
+        """使用DeepSeek解析用户意图"""
+        prompt = f"""
+        解析用户的购物需求，提取以下信息：
+        
+        用户输入：{user_message}
+        
+        请返回JSON格式：
+        {{
+            "product_type": "手机/电脑/平板等",
+            "budget_range": [最低预算, 最高预算],
+            "key_requirements": ["需求1", "需求2"],
+            "usage_scenario": "使用场景描述",
+            "brand_preferences": ["品牌1", "品牌2"]
+        }}
+        """
+        
+        response = await self.deepseek.chat_completion(prompt)
+        return json.loads(response)
+```
+
+#### 3. 数据采集模块
+```python
+class DataCollector:
+    async def collect_product_info(self, intent: Dict) -> List[Product]:
+        """多源头数据采集"""
+        sources = [
+            self._jd_api_search(intent),
+            self._taobao_api_search(intent), 
+            self._tech_reviews(intent),
+            self._user_evaluations(intent)
+        ]
+        return await asyncio.gather(*sources)
+```
+
+#### 4. 推荐引擎核心
+```python
+class DeepSeekRecommendationEngine:
+    def __init__(self):
+        self.deepseek_service = DeepSeekService()
+        self.data_collector = DataCollector()
+        self.budget_optimizer = BudgetOptimizer()
+    
+    async def get_recommendations(self, user_input: str) -> Dict:
+        """完整的DeepSeek推荐流程"""
+        # 1. 解析用户意图
+        intent = await self._parse_user_intent(user_input)
+        
+        # 2. 获取产品数据
+        product_data = await self.data_collector.collect_product_info(intent)
+        
+        # 3. DeepSeek分析生成推荐
+        deepseek_analysis = await self.deepseek_service.analyze_products(intent, product_data)
+        
+        # 4. 预算优化
+        final_recommendations = self.budget_optimizer.optimize(
+            deepseek_analysis, intent.get('budget_range')
+        )
+        
+        return {
+            "user_intent": intent,
+            "analyzed_products_count": len(product_data),
+            "ai_model": "deepseek-chat",
+            "recommendations": final_recommendations,
+            "analysis_timestamp": datetime.now().isoformat()
+        }
+```
+
+#### 5. 预算优化模块
+```python
+class BudgetOptimizer:
+    def optimize_recommendation(self, products: List, budget: Tuple) -> List:
+        """基于预算优化推荐结果"""
+        filtered_products = self._filter_by_budget(products, budget)
+        return self._sort_by_value_score(filtered_products)
+```
+
+### API接口设计
+
+#### 1. 推荐接口
+```python
+# POST /api/v1/recommendations
+{
+    "user_input": "想要编程用的轻薄笔记本，预算8000左右",
+    "user_preferences": {
+        "preferred_brands": ["ThinkPad", "MacBook"],
+        "exclude_brands": []
+    }
+}
+
+# 响应
+{
+    "success": true,
+    "data": {
+        "user_intent": {...},
+        "ai_model": "deepseek-chat",
+        "analyzed_products_count": 15,
+        "recommendations": {
+            "top3_products": [...],
+            "comparison_analysis": {...},
+            "budget_advice": "...",
+            "deepseek_analysis": "DeepSeek的详细分析报告..."
+        }
+    }
+}
+```
+
+#### 2. 产品搜索接口
+```python
+# GET /api/v1/products?q=关键词&category=类型&budget=预算
+# 响应：产品列表
+```
+
+#### 3. 反馈收集接口  
+```python
+# POST /api/v1/feedback
+{
+    "recommendation_id": "xxx",
+    "helpful": true,
+    "feedback": "具体反馈",
+    "ai_model": "deepseek-chat"
+}
+```
+
+## 📊 数据流设计
+
+### 完整工作流程
+1. **用户输入** → 前端收集搜索参数
+2. **DeepSeek意图解析** → 使用DeepSeek解析用户需求
+3. **数据采集** → 多平台并行获取产品数据
+4. **DeepSeek分析** → 生成推荐和分析报告
+5. **预算优化** → 根据预算筛选排序
+6. **结果返回** → 前端展示推荐结果
+7. **反馈收集** → 优化后续推荐
+
+### 数据模型
+```python
+# 核心数据模型
+class Product(BaseModel):
+    id: str
+    name: str
+    price: float
+    specs: Dict
+    rating: float
+    review_count: int
+    image_url: str
+    purchase_url: str
+
+class DeepSeekRecommendation(BaseModel):
+    id: str
+    user_query: str
+    ai_model: str = "deepseek-chat"
+    top_products: List[Product]
+    comparison_data: Dict
+    deepseek_analysis: str
+    budget_advice: str
+    created_at: datetime
+```
+
+## 🔧 DeepSeek集成配置
+
+### 环境配置
+```python
+# config/deepseek_config.py
+DEEPSEEK_CONFIG = {
+    "api_key": os.getenv("DEEPSEEK_API_KEY"),
+    "base_url": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
+    "temperature": 0.1,
+    "max_tokens": 2000,
+    "timeout": 30
+}
+```
+
+### 依赖配置
+```python
+# requirements.txt
+fastapi==0.104.1
+uvicorn==0.24.0
+langchain==0.0.334
+openai==1.3.0  # 用于兼容DeepSeek API
+aiohttp==3.9.1
+asyncpg==0.29.0
+redis==5.0.1
+pydantic==2.5.0
+python-multipart==0.0.6
+```
+
+## 🚀 部署架构
+
+### 开发环境
+```yaml
+前端开发: localhost:3000 (Vite Dev Server)
+后端开发: localhost:8000 (FastAPI)
+数据库: PostgreSQL + Redis (Docker)
+AI服务: DeepSeek API
+```
+
+### 生产环境
+```yaml
+前端: Vercel/Netlify (静态部署)
+后端: AWS EC2/Docker (API服务)
+数据库: AWS RDS PostgreSQL + ElastiCache Redis
+AI服务: DeepSeek API
+```
+
+## 💰 成本优势分析
+
+### DeepSeek vs OpenAI成本对比
+| 功能模块 | DeepSeek成本 | OpenAI成本 | 节省比例 |
+|---------|-------------|------------|----------|
+| 意图解析 | ~0.5元/千次 | ~2元/千次 | 75% |
+| 产品分析 | ~1元/千次 | ~5元/千次 | 80% |
+| 推荐生成 | ~2元/千次 | ~10元/千次 | 80% |
+
+### 月度成本估算
+- **DeepSeek API费用**: ~200元/月 (预估10万次调用)
+- **服务器费用**: ~200元/月
+- **数据存储**: ~100元/月
+- **总成本**: ~500元/月 (比OpenAI方案节省70%)
+
+## 📈 功能迭代计划
+
+### 第一阶段 MVP (2-3周)
+- [ ] 基础前端界面（首页+结果页）
+- [ ] 后端API框架搭建
+- [ ] DeepSeek API集成
+- [ ] 单一数据源接入（如京东API）
+- [ ] 基础DeepSeek推荐逻辑
+- [ ] 简单的产品对比
+
+### 第二阶段 功能完善 (4-6周)  
+- [ ] 多数据源接入（淘宝、评测网站）
+- [ ] 高级DeepSeek分析能力
+- [ ] 完整的预算优化
+- [ ] 用户反馈系统
+- [ ] 产品详情页面
+- [ ] DeepSeek分析质量优化
+
+### 第三阶段 优化扩展 (持续)
+- [ ] 个性化推荐算法
+- [ ] 实时价格监控
+- [ ] 多品类扩展
+- [ ] DeepSeek模型调优
+- [ ] 移动端APP
+- [ ] 商业化功能
+
+## 🔐 安全与合规
+
+### DeepSeek API安全
+- API密钥安全管理
+- 请求频率限制
+- 数据隐私保护
+- 遵守DeepSeek使用条款
+
+### 数据安全
+- 用户数据加密存储
+- API访问频率限制
+- 敏感信息脱敏处理
+
+## 🎯 成功指标
+
+### 技术指标
+- API响应时间 < 2秒
+- DeepSeek分析准确率 > 85%
+- 系统可用性 > 99%
+- 推荐采纳率 > 70%
+
+### 业务指标  
+- 用户满意度评分
+- DeepSeek分析质量评分
+- 平均使用时长
+- 用户回头率
+
+### DeepSeek特定指标
+- 分析响应时间 < 3秒
+- 内容合规率 100%
+- 分析一致性 > 90%
+
+---
+
+这个修改后的需求文档将AI分析模型全面替换为DeepSeek，突出了成本优势和国产AI的技术特点，同时保持了系统的完整功能和架构设计。
